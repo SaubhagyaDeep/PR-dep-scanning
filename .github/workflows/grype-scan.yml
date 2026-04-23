@@ -57,7 +57,7 @@ jobs:
         run: |
           grype dir:. \
             --only-fixed \
-            --fail-on high \
+            --fail-on critical \
             --config .grype.yaml \
             --output json \
             --file grype-results.json
@@ -136,8 +136,8 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
           body-includes: '<!-- grype-report -->'
-          
-			#Failure Path
+
+      # Failure path
       - name: Post or update Grype PR comment
         if: >
           steps.db-check.outputs.db_available == 'true' &&

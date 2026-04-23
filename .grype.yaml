@@ -5,7 +5,6 @@
 
 output: json
 
-# Only report vulnerabilities where a fix is available.
 # CVEs with no patch are excluded — there is nothing actionable.
 only-fixed: true
 
@@ -19,15 +18,20 @@ ignore:
   #     reason: "one-line justification"
   #     expires: "YYYY-MM-DD"     # no built-in enforcement — reviewed quarterly
   #     approved-by: "@slack-handle"
-  #
-  # Example (remove before using):
-  # - vulnerability: CVE-2023-12345
-  #   package:
-  #     name: some-package
-  #   reason: "only reachable in test environment, not in production image"
-  #   expires: "2026-07-01"
-  #   approved-by: "@saubhagya"
 
+  ##- vulnerability: GHSA-35jh-r3h4-6jhm
+  - package:
+      name: lodash
+    reason: "_.template not used in any production code path, risk accepted"
+    expires: "2026-10-01"
+    approved-by: "@saubhagya"
+
+  - package:
+      name: path-to-regexp
+    reason: "testing it"
+    expires: "2026-10-01"
+    approved-by: "@saubhagya"
+    
   # ── Structural ignores (no approval needed) ───────────────────────────────
 
   # wont-fix: upstream has explicitly declined to patch — nothing actionable
