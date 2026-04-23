@@ -26,6 +26,12 @@ ignore:
     expires: "2026-10-01"
     approved-by: "@saubhagya"
 
+  - package:
+      name: path-to-regexp
+    reason: "testing it"
+    expires: "2026-10-01"
+    approved-by: "@saubhagya"
+    
   # ── Structural ignores (no approval needed) ───────────────────────────────
 
   # wont-fix: upstream has explicitly declined to patch — nothing actionable
