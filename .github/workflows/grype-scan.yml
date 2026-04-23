@@ -1,0 +1,169 @@
+name: Vulnerability Scan (Grype)
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read        # needed for actions/checkout
+  pull-requests: write  # needed to post PR comments via gh CLI
+
+jobs:
+  grype-scan:
+    name: Grype Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Get current date (for cache key)
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      # ── Mitigation 1: DB cache — stale cache beats no scan ──────────────────
+      - name: Cache Grype DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/grype/db
+          key: grype-db-${{ runner.os }}-${{ steps.date.outputs.date }}
+          restore-keys: |
+            grype-db-${{ runner.os }}-
+
+      - name: Install Grype
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Update Grype DB
+        id: db-update
+        continue-on-error: true   # DB update fail = fall back to cache, never block
+        run: grype db update
+
+      - name: Check Grype DB is available
+        id: db-check
+        run: |
+          if grype db status > /dev/null 2>&1; then
+            echo "db_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "db_available=false" >> $GITHUB_OUTPUT
+            echo "::warning::Grype DB unavailable (no cache, update failed) — skipping scan"
+          fi
+
+      # ── Scan — only-fixed + continue-on-error (no || true) ──────────────────
+      - name: Run Grype scan
+        if: steps.db-check.outputs.db_available == 'true'
+        id: grype-scan
+        continue-on-error: true   # preserves real outcome in steps.grype-scan.outcome
+        run: |
+          grype dir:. \
+            --only-fixed \
+            --fail-on high \
+            --config .grype.yaml \
+            --output json \
+            --file grype-results.json
+
+      # ── Mitigation 4: Collapsible, deduped PR comment — no spam ─────────────
+      - name: Generate PR comment
+        if: >
+          steps.db-check.outputs.db_available == 'true' &&
+          steps.grype-scan.outcome == 'failure' &&
+          github.event_name == 'pull_request'
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+
+          results_path = "grype-results.json"
+          if not os.path.exists(results_path):
+              sys.exit(0)
+
+          with open(results_path) as f:
+              data = json.load(f)
+
+          matches = data.get("matches", [])
+          high_crit = [
+              m for m in matches
+              if m.get("vulnerability", {}).get("severity", "").lower() in ("high", "critical")
+          ]
+
+          if not high_crit:
+              sys.exit(0)
+
+          lines = [
+              "<!-- grype-report -->",
+              f"### Grype scan — {len(high_crit)} High/Critical finding(s) with fixes available",
+              "",
+              "<details>",
+              "<summary>Click to expand findings</summary>",
+              "",
+              "| Severity | Package | Installed | CVE | Fix Version |",
+              "|---|---|---|---|---|",
+          ]
+
+          for m in sorted(high_crit, key=lambda x: (
+              {"critical": 0, "high": 1}.get(x["vulnerability"].get("severity","").lower(), 2)
+          )):
+              vuln = m["vulnerability"]
+              art  = m["artifact"]
+              fix  = vuln.get("fix", {}).get("versions", [])
+              fix_str = fix[0] if fix else "—"
+              lines.append(
+                  f"| **{vuln.get('severity','?')}** "
+                  f"| `{art.get('name','?')}` "
+                  f"| {art.get('version','?')} "
+                  f"| [{vuln.get('id','?')}](https://osv.dev/vulnerability/{vuln.get('id','')}) "
+                  f"| {fix_str} |"
+              )
+
+          lines += [
+              "",
+              "</details>",
+              "",
+              "> Only High/Critical findings with available fixes are shown here.",
+              "> Full JSON report is in the workflow artifacts.",
+          ]
+
+          with open("grype-comment.md", "w") as fh:
+              fh.write("\n".join(lines))
+          PY
+
+      - name: Find existing Grype PR comment
+        if: >
+          steps.db-check.outputs.db_available == 'true' &&
+          steps.grype-scan.outcome == 'failure' &&
+          github.event_name == 'pull_request'
+        id: find-comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- grype-report -->'
+
+      - name: Post or update Grype PR comment
+        if: >
+          steps.db-check.outputs.db_available == 'true' &&
+          steps.grype-scan.outcome == 'failure' &&
+          github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: grype-comment.md
+          edit-mode: replace
+
+      - name: Upload full Grype report artifact
+        if: steps.db-check.outputs.db_available == 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: grype-report
+          path: grype-results.json
+
+      # ── Fail the check if scan found High/Critical (enforcement phase) ───────
+      - name: Fail if High/Critical vulnerabilities found
+        if: >
+          steps.db-check.outputs.db_available == 'true' &&
+          steps.grype-scan.outcome == 'failure'
+        run: |
+          echo "::error::High or Critical vulnerabilities with available fixes were found."
+          echo "See the PR comment and grype-report artifact for details."
+          exit 1
+
