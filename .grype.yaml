@@ -9,7 +9,7 @@ output: json
 only-fixed: true
 
 # Minimum severity to include in results.
-fail-on-severity: high
+fail-on-severity: critical
 
 ignore:
   # ── Accepted exceptions ────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ ignore:
     reason: "testing it"
     expires: "2026-10-01"
     approved-by: "@saubhagya"
-    
+
   # ── Structural ignores (no approval needed) ───────────────────────────────
 
   # wont-fix: upstream has explicitly declined to patch — nothing actionable
