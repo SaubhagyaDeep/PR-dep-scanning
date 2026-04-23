@@ -22,7 +22,7 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-      # ── Mitigation 1: DB cache — stale cache beats no scan ──────────────────
+
       - name: Cache Grype DB
         uses: actions/cache@v4
         with:
@@ -49,7 +49,7 @@ jobs:
             echo "::warning::Grype DB unavailable (no cache, update failed) — skipping scan"
           fi
 
-      # ── Scan — only-fixed + continue-on-error (no || true) ──────────────────
+
       - name: Run Grype scan
         if: steps.db-check.outputs.db_available == 'true'
         id: grype-scan
@@ -62,7 +62,7 @@ jobs:
             --output json \
             --file grype-results.json
 
-      # ── Mitigation 4: Collapsible, deduped PR comment — no spam ─────────────
+
       - name: Generate PR comment
         if: >
           steps.db-check.outputs.db_available == 'true' &&
@@ -129,7 +129,6 @@ jobs:
       - name: Find existing Grype PR comment
         if: >
           steps.db-check.outputs.db_available == 'true' &&
-          steps.grype-scan.outcome == 'failure' &&
           github.event_name == 'pull_request'
         id: find-comment
         uses: peter-evans/find-comment@v3
@@ -137,7 +136,8 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
           body-includes: '<!-- grype-report -->'
-
+          
+			#Failure Path
       - name: Post or update Grype PR comment
         if: >
           steps.db-check.outputs.db_available == 'true' &&
@@ -149,6 +149,27 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body-path: grype-comment.md
           edit-mode: replace
+          
+      # Success path — update stale comment if one exists from a previous push
+      - name: Post clean bill of health
+        if: >
+          steps.db-check.outputs.db_available == 'true' &&
+          steps.grype-scan.outcome == 'success' &&
+          steps.find-comment.outputs.comment-id != '' &&
+          github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            <!-- grype-report -->
+            ### Grype scan — ✅ No High/Critical findings on latest push
+
+            All previously reported vulnerabilities have been resolved or are no longer present.
+            Full report is in the workflow artifacts.
+          
+          
 
       - name: Upload full Grype report artifact
         if: steps.db-check.outputs.db_available == 'true'

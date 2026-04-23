@@ -1,0 +1,41 @@
+# Grype configuration
+# https://oss.anchore.com/docs/reference/grype/configuration/
+#
+# Exceptions require security team approval — see .github/CODEOWNERS
+
+output: json
+
+# Only report vulnerabilities where a fix is available.
+# CVEs with no patch are excluded — there is nothing actionable.
+only-fixed: true
+
+# Minimum severity to include in results.
+fail-on-severity: high
+
+ignore:
+  # ── Accepted exceptions ────────────────────────────────────────────────────
+  # Format:
+  #   - vulnerability: CVE-XXXX-YYYY
+  #     reason: "one-line justification"
+  #     expires: "YYYY-MM-DD"     # no built-in enforcement — reviewed quarterly
+  #     approved-by: "@slack-handle"
+  #
+  # Example (remove before using):
+  # - vulnerability: CVE-2023-12345
+  #   package:
+  #     name: some-package
+  #   reason: "only reachable in test environment, not in production image"
+  #   expires: "2026-07-01"
+  #   approved-by: "@saubhagya"
+
+  # ── Structural ignores (no approval needed) ───────────────────────────────
+
+  # wont-fix: upstream has explicitly declined to patch — nothing actionable
+  - fix-state: "wont-fix"
+
+  # Dev/test-only package types that never ship to production
+  # Uncomment if your project uses these:
+  # - package:
+  #     type: java-archive
+  #     location: "**/test/**"
+
