@@ -57,7 +57,7 @@ jobs:
         run: |
           grype dir:. \
             --only-fixed \
-            --fail-on critical \
+            --fail-on high \
             --config .grype.yaml \
             --output json \
             --file grype-results.json
