@@ -19,8 +19,8 @@ ignore:
   #     expires: "YYYY-MM-DD"     # no built-in enforcement — reviewed quarterly
   #     approved-by: "@slack-handle"
 
-  #- vulnerability: GHSA-35jh-r3h4-6jhm
-    package:
+  ##- vulnerability: GHSA-35jh-r3h4-6jhm
+  - package:
       name: lodash
     reason: "_.template not used in any production code path, risk accepted"
     expires: "2026-10-01"
