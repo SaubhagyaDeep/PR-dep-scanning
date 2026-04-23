@@ -53,3 +53,5 @@ trivy fs --security-checks vuln ./demo-app
 These tools can be integrated into CI/CD pipelines to scan dependencies on every pull request.
 Refer to your CI platform's documentation (e.g., GitHub Actions) for workflow examples.
 
+
+add this line to trigger the scanning and creating a baseline.
