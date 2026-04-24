@@ -184,7 +184,7 @@ jobs:
           steps.db-check.outputs.db_available == 'true' &&
           steps.grype-scan.outcome == 'failure'
         run: |
-          echo "::error::High or Critical vulnerabilities with available fixes were found."
+          echo "High or Critical vulnerabilities with available fixes were found."
           echo "See the PR comment and grype-report artifact for details."
           exit 1
 
