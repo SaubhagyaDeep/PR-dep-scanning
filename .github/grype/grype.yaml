@@ -1,20 +1,28 @@
 # Grype configuration
 # https://oss.anchore.com/docs/reference/grype/configuration/
-#
-# Exceptions require security team approval — see .github/CODEOWNERS
+
 
 output: json
+sort-by: severity
+add-cpes-if-none: true
+only-fixed: true
+fail-on-severity: high
+
+log:
+  quiet: true
+
+db:
+  max-allowed-built-age: 72h
 
 # CVEs with no patch are excluded — there is nothing actionable.
-only-fixed: true
 
-# Minimum severity to include in results.
-fail-on-severity: high
 
 ignore:
   # ── Accepted exceptions ────────────────────────────────────────────────────
   # Format:
-  #   - vulnerability: CVE-XXXX-YYYY
+  #   - vulnerability: GHSA-xxX-xXxx  OR
+  #   - package:
+  #       name: package-name
   #     reason: "one-line justification"
   #     expires: "YYYY-MM-DD"     # no built-in enforcement — reviewed quarterly
   #     approved-by: "@slack-handle"
@@ -38,7 +46,6 @@ ignore:
   - fix-state: "wont-fix"
 
   # Dev/test-only package types that never ship to production
-  # Uncomment if your project uses these:
   # - package:
   #     type: java-archive
   #     location: "**/test/**"
